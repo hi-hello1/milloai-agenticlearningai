@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study Planner AI — Your Personalized Learning Path</title>
+  <meta name="description" content="AI-powered study planner that creates personalized learning paths with curated courses and resources. Powered by 4 specialized AI agents." />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- DOMPurify for XSS protection on rendered markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+</head>
+<body>
+
+  <!-- Animated Background Orbs -->
+  <div class="bg-effects">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <div class="app-layout">
+
+    <!-- ====== SIDEBAR ====== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h3><span>📚</span> History</h3>
+        <button class="btn-sidebar-close" id="btn-sidebar-close" title="Close sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="sidebar-actions">
+        <button class="btn-new-plan" id="btn-new-plan">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Plan
+        </button>
+        <button class="btn-clear-history" id="btn-clear-history" title="Clear all history">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+      <div class="sidebar-list" id="history-list">
+        <div class="sidebar-empty" id="sidebar-empty">
+          <span>🕐</span>
+          <p>No history yet.<br/>Generate your first study plan!</p>
+        </div>
+        <!-- History items populated by JS -->
+      </div>
+    </aside>
+
+    <!-- ====== MAIN CONTENT ====== -->
+    <main class="main-content" id="main-content">
+
+      <!-- Sidebar toggle button -->
+      <button class="btn-sidebar-toggle" id="btn-sidebar-toggle" title="Open history">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+        <span class="history-badge" id="history-badge" style="display:none;">0</span>
+      </button>
+
+      <div class="app-container">
+
+        <!-- ====== HERO ====== -->
+        <header class="hero">
+          <div class="hero-badge">
+            <span class="dot"></span>
+            4 AI Agents Ready
+          </div>
+          <h1>
+            Your AI <span class="gradient-text">Study Planner</span>
+          </h1>
+          <p>Tell us what you want to learn and our team of AI agents will craft a personalized study plan with curated courses, resources, and a week-by-week roadmap.</p>
+        </header>
+
+        <!-- ====== FORM ====== -->
+        <section class="form-section" id="form-section">
+          <div class="glass-card">
+            <h2>
+              <span class="icon">🎯</span>
+              Tell us about your learning goals
+            </h2>
+            <form id="study-form">
+              <div class="form-grid">
+
+                <div class="form-group full-width">
+                  <label for="topic">What do you want to learn?</label>
+                  <input
+                    type="text"
+                    id="topic"
+                    name="topic"
+                    placeholder="e.g. Machine Learning, Spanish, Storytelling, Piano…"
+                    required
+                    autocomplete="off"
+                    maxlength="200"
+                  />
+                </div>
+
+                <div class="form-group full-width">
+                  <label for="motivation">Why do you want to learn it?</label>
+                  <textarea
+                    id="motivation"
+                    name="motivation"
+                    placeholder="e.g. I want to switch careers into data science, I'm traveling to Spain next year…"
+                    required
+                    maxlength="500"
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label for="level">Depth level</label>
+                  <select id="level" name="level" required>
+                    <option value="beginner">🌱 Beginner</option>
+                    <option value="intermediate">📈 Intermediate</option>
+                    <option value="advanced">🚀 Advanced</option>
+                    <option value="mastery">👑 Mastery</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="course_type">Course preference</label>
+                  <select id="course_type" name="course_type" required>
+                    <option value="both">🎓 Free & Paid</option>
+                    <option value="free">🆓 Free only</option>
+                    <option value="paid">💎 Paid only</option>
+                  </select>
+                </div>
+
+              </div>
+
+              <button type="submit" id="btn-generate" class="btn-generate">
+                <span class="btn-content">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  Generate Study Plan
+                </span>
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- ====== LOADING ====== -->
+        <section id="loading-section" class="loading-section">
+          <div class="glass-card loading-card">
+            <div class="loading-spinner"></div>
+            <div id="loading-phase" class="loading-phase">Starting up…</div>
+            <div class="loading-subtext">This usually takes 1–3 minutes. Our agents are working hard!</div>
+
+            <div class="agent-steps">
+              <div class="agent-step" data-step="0">
+                <span class="step-icon">📋</span>
+                Intake
+              </div>
+              <div class="agent-step" data-step="1">
+                <span class="step-icon">🔍</span>
+                Research
+              </div>
+              <div class="agent-step" data-step="2">
+                <span class="step-icon">✍️</span>
+                Prompt
+              </div>
+              <div class="agent-step" data-step="3">
+                <span class="step-icon">🎓</span>
+                Planner
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====== RESULTS ====== -->
+        <section id="results-section" class="results-section">
+          <div class="results-header">
+            <h2>
+              <span>✨</span>
+              Your Study Plan
+            </h2>
+            <div class="results-actions">
+              <button id="btn-copy" class="btn-copy">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy Markdown
+              </button>
+              <button id="btn-back-to-form" class="btn-copy">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Plan
+              </button>
+            </div>
+          </div>
+          <div class="glass-card results-body">
+            <div id="markdown-content" class="markdown-content"></div>
+          </div>
+        </section>
+
+        <!-- ====== ERROR ====== -->
+        <section id="error-section" class="error-section">
+          <div class="glass-card error-card">
+            <div class="error-icon">⚠️</div>
+            <div id="error-message" class="error-message">Something went wrong.</div>
+            <button id="btn-retry" class="btn-retry">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Try Again
+            </button>
+          </div>
+        </section>
+
+        <!-- ====== FOOTER ====== -->
+        <footer class="footer">
+          Powered by CrewAI &amp; Gemini — 4 AI Agents working for you
+        </footer>
+
+      </div>
+    </main>
+
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
