@@ -1,6 +1,7 @@
 from crewai import LLM, Agent, Task, Crew
 #from crewai_tools import EXASearchTool, ScrapeWebsiteTool
 import os
+import tempfile
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -85,7 +86,7 @@ def create_presentation(content: str) -> str:
     )
 
  
-    output_path = "study_plan_presentation.pptx"
+    output_path = os.path.join(tempfile.gettempdir(), "study_plan_presentation.pptx")
     prs.save(output_path)
     return f"Presentation saved to {output_path}"
     
@@ -211,9 +212,10 @@ course_planner_agent = Agent(
     verbose=True,
     allow_delegation=False,
 )
-def save_file_hook(result):
+def save_file_hook(result, topic="study_plan"):
     """
-    Save the final research report to a local markdown file
+    Save the final research report to a local markdown file.
+    Uses temp directory on deployed environments (e.g. Render).
     """
     try:
         # Get the final report content from the last task output
@@ -223,12 +225,13 @@ def save_file_hook(result):
             report_content = str(result)
 
         filename = f"study_plan_{topic.replace(' ', '_')}.md"
+        filepath = os.path.join(tempfile.gettempdir(), filename)
         
         # Save to file
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filepath, 'w', encoding='utf-8') as f:
             f.write(report_content)
         
-        print(f"Report successfully saved to: {filename}")
+        print(f"Report successfully saved to: {filepath}")
         
     except Exception as e:
         print(f"Error saving report to file: {str(e)}")
@@ -263,9 +266,8 @@ def write_report_guradraial(output):
     if not re.search(r"course recommendations", output_lower):
         return (False, "Missing course recommendations section.")
 
-test_report_pass = write_report_guradraial("result")
-
-test_report_fail = write_report_guradraial("test_report_fail")
+# Guardrail tests — only run when this file is executed directly
+# (moved to __main__ block to avoid crashing on import)
 
 
 research_task = Task(
@@ -303,7 +305,7 @@ def run_crew(topic, motivation, level, course_type):
         "level": level,
         "course_type": course_type
     })
-    save_file_hook(result)
+    save_file_hook(result, topic=topic)
 
     # Extract the raw markdown content
     if hasattr(result, 'tasks_output') and result.tasks_output:
@@ -312,6 +314,10 @@ def run_crew(topic, motivation, level, course_type):
 
 
 if __name__ == "__main__":
+    # Run guardrail tests only when executed directly
+    test_report_pass = write_report_guradraial("result")
+    test_report_fail = write_report_guradraial("test_report_fail")
+
     topic = input("What do you want to learn? ")
     motivation = input("Why do you want to learn it? ")
     level = input("What level — beginner, intermediate, advanced, or mastery? ")
