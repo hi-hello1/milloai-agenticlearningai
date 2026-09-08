@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 os.environ["CREWAI_Testing"] = "True"
-os.environ["Model"] = "Gemini 3.1 Flash-Lite"
+os.environ["Model"] = "Gemini 2.5 Flash"
 
 
 # --- Lazy initialization ---
