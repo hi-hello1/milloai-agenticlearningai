@@ -9,8 +9,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 load_dotenv()
-
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.', static_folder='.')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", secrets.token_hex(32))
 
 # --------------- Rate Limiting ---------------
