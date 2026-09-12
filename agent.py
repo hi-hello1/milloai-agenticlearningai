@@ -300,12 +300,15 @@ def save_file_hook(result, topic="study_plan"):
 
 
 def run_crew(topic, motivation, level, course_type):
-    """Run the CrewAI pipeline and return the final study plan as a string."""
-    global _crew
-    if _crew is None:
-        _crew = _build_crew()
+    """Run the CrewAI pipeline and return the final study plan as a string.
 
-    result = _crew.kickoff(inputs={
+    NOTE: We intentionally build a fresh Crew on every request.
+    Reusing a cached crew causes stale task outputs from previous runs
+    to bleed into the next run's context, which breaks agent 3+.
+    """
+    crew = _build_crew()
+
+    result = crew.kickoff(inputs={
         "topic": topic,
         "motivation": motivation,
         "level": level,
