@@ -298,12 +298,13 @@ function showResults(markdown) {
 
 function showError(message) {
   stopLoadingAnimation();
-  formSection.style.display = "";
+  formSection.style.display = "none";
   loadingSection.classList.remove("active");
   resultsSection.classList.remove("active");
   errorSection.classList.add("active");
   errorMessage.textContent = message;
   resetButton();
+  errorSection.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function resetButton() {
@@ -413,8 +414,7 @@ btnCopy.addEventListener("click", async () => {
 
 // --------------- Retry ---------------
 btnRetry.addEventListener("click", () => {
-  errorSection.classList.remove("active");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  showForm();
 });
 
 // --------------- Init ---------------
