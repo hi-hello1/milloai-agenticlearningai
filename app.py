@@ -10,7 +10,16 @@ from flask_limiter.util import get_remote_address
 
 load_dotenv()
 
-app = Flask(__name__, template_folder='templates', static_folder='static', static_url_path='/static')
+# Auto-detect directory structure (local has templates/ & static/ folders,
+# but GitHub/Render has a flat layout with all files at root)
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+_has_folders = os.path.isdir(os.path.join(_base_dir, 'templates'))
+app = Flask(
+    __name__,
+    template_folder='templates' if _has_folders else '.',
+    static_folder='static' if _has_folders else '.',
+    static_url_path='/static',
+)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", secrets.token_hex(32))
 
 # --------------- Rate Limiting ---------------
