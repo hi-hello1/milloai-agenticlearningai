@@ -1,6 +1,6 @@
 // =============================================
 //  Study Planner AI — Frontend Logic
-//  With: History, CSRF, DOMPurify
+//  With: History, CSRF, DOMPurify, Polling
 // =============================================
 
 // --------------- DOM Elements ---------------
@@ -33,6 +33,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || 
 // --------------- State ---------------
 let rawMarkdown = "";
 let phaseInterval = null;
+let pollInterval = null;
 let currentViewingId = null; // The history item currently being viewed
 
 // --------------- History (localStorage) ---------------
@@ -253,6 +254,7 @@ function stopLoadingAnimation() {
 
 // --------------- View State Management ---------------
 function showForm() {
+  stopPolling();
   formSection.style.display = "";
   loadingSection.classList.remove("active");
   resultsSection.classList.remove("active");
@@ -298,6 +300,7 @@ function showResults(markdown) {
 
 function showError(message) {
   stopLoadingAnimation();
+  stopPolling();
   formSection.style.display = "none";
   loadingSection.classList.remove("active");
   resultsSection.classList.remove("active");
@@ -313,6 +316,62 @@ function resetButton() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
     Generate Study Plan
   `;
+}
+
+// --------------- Polling for Task Status ---------------
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+function startPolling(taskId, topic, motivation, level, courseType) {
+  const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
+  const MAX_POLL_TIME_MS = 10 * 60 * 1000; // Give up after 10 minutes
+  const startTime = Date.now();
+
+  pollInterval = setInterval(async () => {
+    // Timeout safety
+    if (Date.now() - startTime > MAX_POLL_TIME_MS) {
+      stopPolling();
+      showError("The request timed out after 10 minutes. Please try again.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/status/${taskId}`);
+      const data = await res.json();
+
+      if (data.status === "done") {
+        stopPolling();
+
+        // Save to history
+        const entry = {
+          id: Date.now(),
+          topic,
+          motivation,
+          level,
+          course_type: courseType,
+          result: data.result,
+          date: new Date().toISOString(),
+        };
+        addToHistory(entry);
+        currentViewingId = entry.id;
+        renderHistory();
+
+        showResults(data.result);
+        form.reset();
+      } else if (data.status === "error") {
+        stopPolling();
+        showError(data.error || "Something went wrong. Please try again.");
+      }
+      // If "running", do nothing — keep polling
+    } catch (err) {
+      console.error("Polling error:", err);
+      // Don't stop polling on a single network glitch — it might recover
+    }
+  }, POLL_INTERVAL_MS);
 }
 
 // --------------- Form Submission ---------------
@@ -332,6 +391,7 @@ form.addEventListener("submit", async (e) => {
   showLoading();
 
   try {
+    // Step 1: Submit the request — server returns a task_id immediately
     const response = await fetch("/generate", {
       method: "POST",
       headers: {
@@ -353,24 +413,9 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
-    // Save to history
-    const entry = {
-      id: Date.now(),
-      topic,
-      motivation,
-      level,
-      course_type: courseType,
-      result: data.result,
-      date: new Date().toISOString(),
-    };
-    addToHistory(entry);
-    currentViewingId = entry.id;
-    renderHistory();
+    // Step 2: Start polling for results
+    startPolling(data.task_id, topic, motivation, level, courseType);
 
-    showResults(data.result);
-
-    // Clear the form for next use
-    form.reset();
   } catch (err) {
     console.error(err);
     showError(

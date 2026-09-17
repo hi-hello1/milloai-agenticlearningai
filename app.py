@@ -2,6 +2,9 @@ import os
 import re
 import secrets
 import traceback
+import threading
+import uuid
+import time
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session
@@ -35,6 +38,32 @@ ALLOWED_LEVELS = {"beginner", "intermediate", "advanced", "mastery"}
 ALLOWED_COURSE_TYPES = {"free", "paid", "both"}
 MAX_TOPIC_LENGTH = 200
 MAX_MOTIVATION_LENGTH = 500
+
+# --------------- Background Task Store ---------------
+# Stores running tasks: { task_id: { status, result, error, created_at } }
+tasks = {}
+TASK_TTL = 3600  # Clean up tasks older than 1 hour
+
+
+def cleanup_old_tasks():
+    """Remove tasks older than TASK_TTL seconds."""
+    now = time.time()
+    expired = [tid for tid, t in tasks.items() if now - t["created_at"] > TASK_TTL]
+    for tid in expired:
+        del tasks[tid]
+
+
+def run_crew_background(task_id, topic, motivation, level, course_type):
+    """Run the CrewAI pipeline in a background thread."""
+    try:
+        from agent import run_crew
+        result = run_crew(topic, motivation, level, course_type)
+        tasks[task_id]["status"] = "done"
+        tasks[task_id]["result"] = result
+    except Exception as e:
+        traceback.print_exc()
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = "An error occurred while generating your study plan. Please try again."
 
 
 # --------------- Security Headers ---------------
@@ -81,6 +110,7 @@ def index():
 @app.route("/generate", methods=["POST"])
 @limiter.limit("5 per hour")
 def generate():
+    """Start the crew in a background thread and return a task ID immediately."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid request body."}), 400
@@ -107,14 +137,42 @@ def generate():
     if course_type not in ALLOWED_COURSE_TYPES:
         return jsonify({"error": f"Invalid course type. Must be one of: {', '.join(ALLOWED_COURSE_TYPES)}"}), 400
 
-    try:
-        from agent import run_crew
+    # Clean up old tasks
+    cleanup_old_tasks()
 
-        result = run_crew(topic, motivation, level, course_type)
-        return jsonify({"result": result})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": "An error occurred while generating your study plan. Please try again."}), 500
+    # Create a task and start crew in background
+    task_id = str(uuid.uuid4())
+    tasks[task_id] = {
+        "status": "running",
+        "result": None,
+        "error": None,
+        "created_at": time.time(),
+    }
+
+    thread = threading.Thread(
+        target=run_crew_background,
+        args=(task_id, topic, motivation, level, course_type),
+        daemon=True,
+    )
+    thread.start()
+
+    # Return immediately with the task ID
+    return jsonify({"task_id": task_id})
+
+
+@app.route("/status/<task_id>")
+def task_status(task_id):
+    """Poll this endpoint to check if the crew has finished."""
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({"status": "error", "error": "Task not found."}), 404
+
+    if task["status"] == "running":
+        return jsonify({"status": "running"})
+    elif task["status"] == "done":
+        return jsonify({"status": "done", "result": task["result"]})
+    else:
+        return jsonify({"status": "error", "error": task["error"]})
 
 
 # --------------- Error Handlers ---------------
