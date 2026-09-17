@@ -90,7 +90,12 @@ def csrf_protect():
     if request.method == "POST":
         token = request.headers.get("X-CSRFToken", "")
         if not token or token != session.get("csrf_token"):
-            return jsonify({"error": "Invalid or missing CSRF token."}), 403
+            # Generate a fresh token so a page reload fixes it
+            session["csrf_token"] = secrets.token_hex(32)
+            return jsonify({
+                "error": "Session expired. Please refresh the page and try again.",
+                "refresh": True
+            }), 403
 
 
 # --------------- Helper ---------------
