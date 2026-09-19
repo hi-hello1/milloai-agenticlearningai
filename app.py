@@ -5,6 +5,8 @@ import traceback
 import threading
 import uuid
 import time
+import json
+import tempfile
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session
@@ -39,18 +41,41 @@ ALLOWED_COURSE_TYPES = {"free", "paid", "both"}
 MAX_TOPIC_LENGTH = 200
 MAX_MOTIVATION_LENGTH = 500
 
-# --------------- Background Task Store ---------------
-# Stores running tasks: { task_id: { status, result, error, created_at } }
-tasks = {}
-TASK_TTL = 3600  # Clean up tasks older than 1 hour
+# --------------- File-Based Task Store ---------------
+# Uses /tmp/ so all workers/threads share the same storage
+TASKS_DIR = os.path.join(tempfile.gettempdir(), "study_planner_tasks")
+os.makedirs(TASKS_DIR, exist_ok=True)
+
+
+def save_task(task_id, data):
+    """Save task state to a JSON file."""
+    filepath = os.path.join(TASKS_DIR, f"{task_id}.json")
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False)
+
+
+def load_task(task_id):
+    """Load task state from a JSON file."""
+    filepath = os.path.join(TASKS_DIR, f"{task_id}.json")
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 def cleanup_old_tasks():
-    """Remove tasks older than TASK_TTL seconds."""
+    """Remove task files older than 1 hour."""
     now = time.time()
-    expired = [tid for tid, t in tasks.items() if now - t["created_at"] > TASK_TTL]
-    for tid in expired:
-        del tasks[tid]
+    try:
+        for filename in os.listdir(TASKS_DIR):
+            filepath = os.path.join(TASKS_DIR, filename)
+            if os.path.isfile(filepath) and now - os.path.getmtime(filepath) > 3600:
+                os.remove(filepath)
+    except Exception:
+        pass
 
 
 def run_crew_background(task_id, topic, motivation, level, course_type):
@@ -58,12 +83,13 @@ def run_crew_background(task_id, topic, motivation, level, course_type):
     try:
         from agent import run_crew
         result = run_crew(topic, motivation, level, course_type)
-        tasks[task_id]["status"] = "done"
-        tasks[task_id]["result"] = result
+        save_task(task_id, {"status": "done", "result": result})
     except Exception as e:
         traceback.print_exc()
-        tasks[task_id]["status"] = "error"
-        tasks[task_id]["error"] = "An error occurred while generating your study plan. Please try again."
+        save_task(task_id, {
+            "status": "error",
+            "error": "An error occurred while generating your study plan. Please try again."
+        })
 
 
 # --------------- Security Headers ---------------
@@ -90,7 +116,6 @@ def csrf_protect():
     if request.method == "POST":
         token = request.headers.get("X-CSRFToken", "")
         if not token or token != session.get("csrf_token"):
-            # Generate a fresh token so a page reload fixes it
             session["csrf_token"] = secrets.token_hex(32)
             return jsonify({
                 "error": "Session expired. Please refresh the page and try again.",
@@ -147,12 +172,7 @@ def generate():
 
     # Create a task and start crew in background
     task_id = str(uuid.uuid4())
-    tasks[task_id] = {
-        "status": "running",
-        "result": None,
-        "error": None,
-        "created_at": time.time(),
-    }
+    save_task(task_id, {"status": "running"})
 
     thread = threading.Thread(
         target=run_crew_background,
@@ -168,16 +188,16 @@ def generate():
 @app.route("/status/<task_id>")
 def task_status(task_id):
     """Poll this endpoint to check if the crew has finished."""
-    task = tasks.get(task_id)
+    task = load_task(task_id)
     if not task:
-        return jsonify({"status": "error", "error": "Task not found."}), 404
+        return jsonify({"status": "running"})
 
     if task["status"] == "running":
         return jsonify({"status": "running"})
     elif task["status"] == "done":
         return jsonify({"status": "done", "result": task["result"]})
     else:
-        return jsonify({"status": "error", "error": task["error"]})
+        return jsonify({"status": "error", "error": task.get("error", "Unknown error")})
 
 
 # --------------- Error Handlers ---------------
