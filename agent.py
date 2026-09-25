@@ -9,6 +9,13 @@ load_dotenv()
 os.environ["CREWAI_Testing"] = "True"
 os.environ["Model"] = "Gemini 2.5 Flash"
 
+# Ensure the API key is available as GOOGLE_API_KEY
+# (the new CrewAI Gemini native provider requires it as an env var)
+_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+if _api_key:
+    os.environ["GOOGLE_API_KEY"] = _api_key
+    os.environ["GEMINI_API_KEY"] = _api_key
+
 
 # --- Lazy initialization ---
 # All CrewAI objects are created on first call to run_crew(),
