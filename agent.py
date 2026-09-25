@@ -35,7 +35,9 @@ def _build_crew():
 
     gemini_llm = LLM(
         model="gemini/gemini-2.5-flash",
-        api_key=os.getenv("GEMINI_API_KEY")
+        api_key=os.getenv("GEMINI_API_KEY"),
+        use_native=False
+    
     )
 
     # --- Tools ---
