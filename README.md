@@ -99,6 +99,3 @@ Open **http://127.0.0.1:5000** in your browser.
 - [marked.js](https://marked.js.org/) — Markdown rendering
 - [DOMPurify](https://github.com/cure53/DOMPurify) — XSS protection
 
-## 📄 License
-
-me
