@@ -26,7 +26,7 @@ Type in what you want to learn, and 4 AI agents collaborate to build you a compl
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/hi-hello1/study-planner-ai.git
+git clone https://github.com/hi-hello1/milloai-agenticlearningai/edit/main/README.md
 cd study-planner-ai
 ```
 
