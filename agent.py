@@ -283,31 +283,6 @@ def write_report_guardrail(output):
     return (True, "Report passed guardrail checks.")
 
 
-def save_file_hook(result, topic="study_plan"):
-    """
-    Save the final research report to a local markdown file.
-    Uses temp directory on deployed environments (e.g. Render).
-    """
-    try:
-        # Get the final report content from the last task output
-        if hasattr(result, 'tasks_output') and result.tasks_output:
-            report_content = result.tasks_output[-1].raw
-        else:
-            report_content = str(result)
-
-        filename = f"study_plan_{topic.replace(' ', '_')}.md"
-        filepath = os.path.join(tempfile.gettempdir(), filename)
-
-        # Save to file
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(report_content)
-
-        print(f"Report successfully saved to: {filepath}")
-
-    except Exception as e:
-        print(f"Error saving report to file: {str(e)}")
-
-
 def run_crew(topic, motivation, level, course_type):
     """Run the CrewAI pipeline and return the final study plan as a string.
 
@@ -323,7 +298,6 @@ def run_crew(topic, motivation, level, course_type):
         "level": level,
         "course_type": course_type
     })
-    save_file_hook(result, topic=topic)
 
     # Extract the raw markdown content
     if hasattr(result, 'tasks_output') and result.tasks_output:
